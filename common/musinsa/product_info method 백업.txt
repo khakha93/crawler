@@ -1,0 +1,273 @@
+<11.20>
+    def get_product_info(self, cate_name):
+
+        # Getting full_name
+        full_name = self.html.find('span', {'class': 'product_title'}).span.text
+
+        # Getting categories
+        category_mass = self.html.find('p', {'class': 'item_categories'})
+        category_list = [s.text for s in category_mass.find_all('a')]
+        category_list.pop()
+
+        # 제품정보(표에서 담기)
+        col = []
+        values = []
+
+        info_mass = self.html.find('ul', {'class': 'product_article'})
+        try:
+            info_list = info_mass.find_all('li')  # 표에 있는 항목들 가져와
+            col_list = [s.p.text for s in info_list]
+        except AttributeError:      # 위에거 말고 이렇게 해야 되는거 있음
+            info_mass = info_mass.find_next('ul', {'class': 'product_article'})
+            info_list = info_mass.find_all('li')
+            col_list = [s.p.text for s in info_list]
+        amt_idx = len(info_list)    # 표에서 가져올 항목의 개수
+
+        change_eng = {'브랜드': 'brand', '품번': 'code', '시즌': 'season', '성별': 'sex', '인기도': 'popular', '누적판매': 'sales',
+                      '좋아요': 'likes', '구매 후기': 'review'}
+        for element in col_list:
+            for j in re.compile('(브랜드|품번|시즌|성별|인기도|누적판매|좋아요|구매 후기)').findall(element):
+                if change_eng[j] not in col:
+                    col.append(change_eng[j])
+        col.append('url')
+
+        # brand & code
+        brand_code_text = info_list[0].p.next_sibling.next_sibling.strong.text
+        brand_code_text = re.compile('\\s').sub('', brand_code_text)
+        brand_code_list = re.split('/', brand_code_text)
+        for e in brand_code_list:
+            values.append(e)
+
+        # 이미 존재하는 데이터인지 확인****************************************
+        code_idx = col.index('code')
+        code = values[code_idx]
+        if self.db.is_duplication('product', code):
+            print('already exist!')
+            return True
+        else:
+            print('괜찮아 아직 없어')
+
+        # season_sex
+        season_sex = info_list[1].p.next_sibling.next_sibling.text
+        season_sex_text = re.compile('[\\n\\t]').sub('', season_sex)
+        season_sex_text = re.compile('^\\s').sub('', season_sex_text)
+        season_sex_text = re.compile('/(?=.$)').sub('-', season_sex_text)
+        season_sex_list = re.split('-', season_sex_text)
+        for e in season_sex_list:
+            values.append(e)
+
+        for i in range(2, amt_idx - 1):
+            content = info_list[i].p.next_sibling.next_sibling.text
+            content = re.compile('[\\n\\t]').sub('', content)
+            values.append(content)
+
+        values.append(self.url)
+
+        tags = info_list[amt_idx - 1].p.text
+        tags = re.compile('^\\n+#').sub('', tags)
+        tags = re.compile('\\n').sub('', tags)
+        tags = re.compile('#').sub(' ', tags)
+        tags_list = re.split(' ', tags)
+
+        col.insert(2, 'full_name')
+        values.insert(2, full_name)
+
+        try:    # 카테고리 넣어주기
+            cate_id = self.db.insert_category(category_list)
+            col.insert(2, 'category')
+            values.insert(2, cate_id)
+            print(code + '_category success')
+        except Exception as ex:
+            print(code + '_category fail')
+            print(ex)
+        try:    # product 기본정보
+            self.db.insert_sub_data('product', col, values)
+            print(code + '_information success!')
+        except Exception as ex:
+            print(code + '_information fail!')
+            print(ex)
+        try:    # 태그
+            if len(tags) > 0:
+                self.db.insert_list_data('tags', tags_list, code)  # fill tags, tags_mapping table
+            elif len(tags) == 0:
+                print('tag가 없습니다.')
+            print(code + '_tags success!')
+        except Exception as ex:
+            print(code + '_tags success!')
+            print(ex)
+        try:    # 이미지
+            self.save_image(code, cate_name)
+            print(code + '_image saved!!')
+        except Exception as ex:
+            print(code + '_image fail!!')
+            print(ex)
+        try:    # 사이즈 정보
+            self.get_size_info(code)
+            print(code + '_size_info saved!!')
+        except AttributeError:
+            print(code + '_사이즈표가 없음')
+            # 사이즈표가 없다고 표시해야하지 않나????????????************************************
+        except Exception as ex:
+            print(code + '_size_info fail!!')
+            print(ex)
+            # 얘도 표시해야할듯*****************************************************************
+
+        return False
+
+<11.25>
+
+    def get_product_info(self, cate_name):
+        print("'get_product_info' method start!!!")
+        # 우측 상단 테이블 정보 담기
+        col = []        # column of product table
+        values = []     # value of product table
+
+        # 준비과정 & 칼럼 만들기
+        info_mass = self.html.find('ul', {'class': 'product_article'})      # table 일단 찾아
+        try:
+            info_list = info_mass.find_all('li')  # 표에 있는 항목들 가져와
+            col_list = [s.p.text for s in info_list]
+        except AttributeError:      # 위에거 말고 이렇게 해야 되는거 있음 (무신사 스탠다드 어쩌구 하는 상품들)
+            info_mass = info_mass.find_next('ul', {'class': 'product_article'})
+            info_list = info_mass.find_all('li')
+            col_list = [s.p.text for s in info_list]
+        amt_idx = len(info_list)    # 표에서 가져올 항목의 개수
+
+        change_eng = {'브랜드': 'brand', '품번': 'code', '시즌': 'season', '성별': 'sex', '인기도': 'popular', '누적판매': 'sales',
+                      '좋아요': 'likes', '구매 후기': 'review'}
+        for element in col_list:
+            for j in re.compile('(브랜드|품번|시즌|성별|인기도|누적판매|좋아요|구매 후기)').findall(element):
+                if change_eng[j] not in col:
+                    col.append(change_eng[j])
+        col.append('url')       # url 은 따로 추가
+
+        # brand & code
+        brand_code_text = info_list[0].p.next_sibling.next_sibling.strong.text
+        brand_code_text = re.compile('\\s').sub('', brand_code_text)
+        brand_code_list = re.split('/', brand_code_text)
+        for e in brand_code_list:
+            values.append(e)
+
+        # 코드는 식별자 역할을 하므로 따로 기억해야함
+        code_idx = col.index('code')
+        code = values[code_idx]
+
+        # <<error table>> 준비
+        err_col = ['code', 'cate_name', 'error_code', 'status', 'url']
+        err_values = [code, cate_name, 'not_solved', self.url]        # error code 는 나중에 insert 할거임
+        err_content = []        # 여기에 error 들을 담아서 error_code 로 쓸거
+        if 'brand' in col:      # 브랜드는 없을 수도 있기때문
+            err_col.insert(0, 'brand')
+            err_values.insert(0, brand_code_list[0])
+
+        # 이미 한 번 다 긁은 상품인지 확인
+        try:
+            if self.db.is_duplication('product', code):
+                print('already crawled!!')
+                return True
+            else:
+                print('괜찮아 아직 없어')
+        except Exception as ex:
+            print(code + '_duplication check fail')
+            print(ex)
+            err_content.append('dup_check_error')
+
+        # 정보 가져오기
+        try:
+            # season_sex
+            season_sex = info_list[1].p.next_sibling.next_sibling.text
+            season_sex_text = re.compile('[\\n\\t]').sub('', season_sex)
+            season_sex_text = re.compile('^\\s').sub('', season_sex_text)
+            season_sex_text = re.compile('/(?=.$)').sub('-', season_sex_text)
+            season_sex_list = re.split('-', season_sex_text)
+            for e in season_sex_list:
+                values.append(e)
+
+            # 나머지 항목들
+            for i in range(2, amt_idx - 1):
+                content = info_list[i].p.next_sibling.next_sibling.text
+                content = re.compile('[\\n\\t]').sub('', content)
+                values.append(content)
+            # url
+            values.append(self.url)
+
+            # Getting full_name
+            full_name = self.html.find('span', {'class': 'product_title'}).span.text
+            col.insert(2, 'full_name')
+            values.insert(2, full_name)
+            print('col', end=': ')
+            print(col)
+            print('values', end=': ')
+            print(values)
+        except Exception as ex:
+            print(code + '_information fail')
+            print(ex)
+            err_content.append('get_information_error')
+
+        # 카테고리 처리
+        try:
+            # Getting categories -> category table 에 저장
+            category_mass = self.html.find('p', {'class': 'item_categories'})
+            category_list = [s.text for s in category_mass.find_all('a')]
+            category_list.pop()
+            self.db.insert_category(category_list)
+            # 기본 정보에 추가해줘
+            cate_id = self.db.get_cate_id(category_list)
+            col.insert(2, 'category')
+            values.insert(2, cate_id)
+            print(code + '_category success')
+        except Exception as ex:
+            print(code + '_category fail')
+            print(ex)
+            err_content.append('category_error')
+
+        # product 기본정보
+        try:
+            self.db.insert_sub_data('product', col, values)
+            print(code + '_information to db success!')
+        except Exception as ex:
+            print(code + '_information to db fail!')
+            print(ex)
+            err_content.append('save_information_error')
+
+        # 태그들*/****************************************************************************
+        tags = info_list[amt_idx - 1].p.text
+        tags = re.compile('\\n').sub('', tags)
+        tags = re.compile('^#').sub('', tags)
+        tag_list = re.split('#', tags)
+        try:    # 태그
+            if len(tags) > 0:
+                self.db.insert_list_data('tags', tag_list, code)  # fill tags, tags_mapping table
+            elif len(tags) == 0:
+                print('tag가 없습니다.')
+            print(code + '_tags success!')
+        except Exception as ex:
+            print(code + '_tags fail!')
+            print(ex)
+            err_content.append('tag_error')
+
+        # 이미지
+        try:
+            self.save_image(code, cate_name)
+            print(code + '_image saved!!')
+        except Exception as ex:
+            print(code + '_image fail!!')
+            print(ex)
+            err_content.append('image_error')
+        # 사이즈 정보
+        try:
+            self.get_size_info(code)
+            print(code + '_size_info saved!!')
+        except Exception as ex:
+            print(code + '_size_info fail!!')
+            print(ex)
+            err_content.append('size_error')
+        
+        # error 났을 경우 에러테이블 채워주기
+        if len(err_content) > 0:
+            err_values.insert(-2, str(err_content))
+            self.db.insert_sub_data('err_product', err_col, err_values)
+
+        # 상품이 모든 코드를 수행했다고 표시
+        self.db.update_data('product', 'all_fin', 'True', 'code', code)
+        return False

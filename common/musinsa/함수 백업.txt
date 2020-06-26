@@ -1,0 +1,80 @@
+def crawling_by_category():
+    list_page = page.ListPage(ch.driver.current_url)  # 상품들 쭉 나온 페이지 생성
+    max_page = list_page.total_page  # 페이지의 수
+    # 페이지별로 for문 돌린다
+    for idx_page in range(1, 3):
+        print(f'{idx_page} page crawling...')
+        max_pro = list_page.amount_product  # 그 페이지에 있는 상품의 개수
+        # 이건 상품별로 for문
+        for idx_pro in range(1):
+            print(f'{idx_pro} product crawling...')
+            # 상품 페이지로 이동
+            product_page = page.ProductPage(list_page.product_list[idx_pro])
+            exist = product_page.get_product_info()  # 수정 필요 **************************
+            if exist:
+                # 페이지 for 문까지 나가야함 ****************************************(수정 필요)
+                return
+        # 다음 페이지로 이동
+        ch.next_list(idx_page + 1)
+        list_page = page.ListPage(ch.driver.current_url)
+        # print(ch.driver.current_url)
+    return
+
+def first_crawling():
+    list_page = page.ListPage(ch.driver.current_url)  # 상품들 쭉 나온 페이지 생성
+    max_page = list_page.total_page  # 페이지의 수
+    # 페이지별로 for문 돌린다
+    for idx_page in range(1, 3):
+        print(f'{idx_page} page crawling...')
+        max_pro = list_page.amount_product  # 그 페이지에 있는 상품의 개수
+        # 상품별로 for문
+        for idx_pro in range(1):
+            print(f'{idx_pro} product crawling...')
+            # new err_point ( 비정상 종료 대비)
+            n_err_point = list_page.product_list[idx_pro]
+            # 비정상 종료 표시 ( 한번만 하면 됨)
+            # 처음이 아니라고 표시
+            # 상품 페이지로 이동 후 정보 긁어오기
+            product_page = page.ProductPage(list_page.product_list[idx_pro])
+            exist = product_page.get_product_info()  # 수정 필요 **************************
+            if exist:
+                # 페이지 for 문까지 나가야함 ****************************************(수정 필요)
+                # 정상종료 표시
+                # err_point 삭제
+                return
+        # 다음 페이지로 이동
+        ch.next_list(idx_page + 1)
+        list_page = page.ListPage(ch.driver.current_url)
+        # print(ch.driver.current_url)
+    # 정상 종료 표시
+    # err_point 삭제
+    return
+
+
+def before_success():
+    list_page = page.ListPage(ch.driver.current_url)  # 상품들이 나열된 페이지
+    max_page = list_page.total_page  # page 수
+    # 각 페이지에서 수행
+    for idx_page in range(1, 3):
+        print(f'{idx_page} page crawling...')
+        max_pro = list_page.amount_product  # page에 있는 상품의 개수
+        # 상품별로 for문
+        for idx_pro in range(1):
+            print(f'{idx_pro} product crawling...')
+            # new err_point ( 비정상 종료 대비)
+            n_err_point = list_page.product_list[idx_pro]
+            # 에러포인트 백업
+            # 비정상 종료 표시 ( 한번만 하면 됨)
+            # 처음이 아니라고 표시
+            # 상품 페이지로 이동 후 정보 긁어오기
+            product_page = page.ProductPage(list_page.product_list[idx_pro])
+            exist = product_page.get_product_info()  # 수정 필요 **************************
+            if exist:
+                # 페이지 for 문까지 나가야함 ****************************************(수정 필요)
+                return
+        # 다음 페이지로 이동
+        ch.next_list(idx_page + 1)
+        list_page = page.ListPage(ch.driver.current_url)
+        # print(ch.driver.current_url)
+    # 정상 종료 표시
+    return
